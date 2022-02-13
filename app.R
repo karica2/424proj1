@@ -33,7 +33,7 @@ uic <- subset(ridership, stationname == "UIC-Halsted")
 hare <- subset(ridership, stationname == "O'Hare Airport")
 
 #third station is Jackson
-jackson <- subset(ridership, stationname == "Jackson")
+jackson <- subset(ridership, stationname == "Jackson/Dearborn")
 
 #UICperYear = ggplot(data=uic, aes(x=year, y=rides)) 
 #UICperYear = UICperYear + geom_bar(stat = "identity", fill="#098CF9") 
@@ -108,32 +108,24 @@ ui <- dashboardPage(
     disable = TRUE, collapsed = FALSE),
   dashboardBody(
   
-  # fluidRow(
-  #   
-  #   
-  #   column(4, 
-  #        conditionalPanel(
-  #          condition = "input.stop1 == 'UIC-Halsted'", 
-  #          plotOutput("uicPlotMonthly", height=200)
-  #        ),
-  #        conditionalPanel(
-  #          condition = "input.stop1 == 'O-Hare'", 
-  #          plotOutput("harePlotMonthly", height=200)
-  #        )
-  #        
-  #        
-  #        ),
-  #   column(4, 
-  #          conditionalPanel(
-  #            condition = "input.stop1 == 'UIC-Halsted'", 
-  #            plotOutput("uicPlotWeekly", height=200)
-  #          ),
-  #          conditionalPanel(
-  #            condition = "input.stop1 == 'O-Hare'", 
-  #            plotOutput("harePlotWeekly", height=200)
-  #          )
-  #   ),
-  # ), 
+  fluidRow(
+    box(width = 2),
+    column(8, box(width = 12, height = "35vh",
+                  
+                  
+                  conditionalPanel(
+                    condition = "input.stop1isGraph == 'yes'",
+                    plotOutput("plot1")
+                  ),
+                  conditionalPanel(
+                    condition = "input.stop1isGraph == 'no'",
+                    dataTableOutput("table1")
+                  )
+                  , title = "Stop 1", solidHeader = TRUE, background = "blue")
+    ),
+    box(width = 2)
+    ),
+  
     
   fluidRow(
     column(2, box(
@@ -146,7 +138,7 @@ ui <- dashboardPage(
       selectInput(
         inputId = "stop1",
         label = "Stop",
-        choices = c("UIC-Halsted", "O-Hare"),
+        choices = c("UIC-Halsted", "O-Hare", "Jackson"),
         selected = NULL,
         multiple = FALSE,
         selectize = TRUE,
@@ -164,150 +156,342 @@ ui <- dashboardPage(
         size = NULL
       ),
       radioButtons("stop1isGraph", "Display as: ",
-                   choices = list("Graph" = 1, "Table" = 0),selected = 1)
+                   choices = list("Graph" = "yes", "Table" = "no"),selected = "yes")
       , title = "Stop 1", background = "black", width = 12)
     ),
-    column(8, dataTableOutput("uicTableWeekly", height=200)),
-    column(8, plotOutput("plot1", height=200))
+    column(8, box(width = 12,
+        
+    
+               conditionalPanel(
+                 condition = "input.stop2isGraph == 'yes'",
+                 plotOutput("plot2", height=200)
+               ),
+               conditionalPanel(
+                 condition = "input.stop2isGraph == 'no'",
+                 dataTableOutput("table2", height=200)
+               )
+    , title = "Stop 2", solidHeader = TRUE, background = "blue")
+    ),
+    column(2, box(
+      sliderInput(inputId = "Year2",
+                  label = "Year:",
+                  min = 2001,
+                  max = 2021,
+                  value = 2001,
+                  sep=""),
+      selectInput(
+        inputId = "stop2",
+        label = "Stop",
+        choices = c("UIC-Halsted", "O-Hare", "Jackson"),
+        selected = NULL,
+        multiple = FALSE,
+        selectize = TRUE,
+        width = NULL,
+        size = NULL
+      ),
+      selectInput(
+        inputId = "stop2Type",
+        label = "Ridership by: ",
+        choices = c("Year", "Month", "Day", "Weekday"),
+        selected = "Year",
+        multiple = FALSE,
+        selectize = TRUE,
+        width = NULL,
+        size = NULL
+      ),
+      radioButtons("stop2isGraph", "Display as: ",
+                   choices = list("Graph" = "yes", "Table" = "no"),selected = "yes")
+      , title = "Stop 2", background = "black", width = 12)
+    ),
   )
 
   ))
   
 server <- function(input, output, session) {
 
-
 uicReactive <- reactive({subset(uic, uic$year == input$Year)})
 hareReactive <- reactive({subset(hare, hare$year == input$Year)})
+jacksonReactive <- reactive({subset(jackson, jackson$year == input$Year)})
+
+uicReactive2 <- reactive({subset(uic, uic$year == input$Year2)})
+hareReactive2 <- reactive({subset(hare, hare$year == input$Year2)})
+jacksonReactive2 <- reactive({subset(jackson, jackson$year == input$Year2)})
+
 
 stops = c(uic, hare)
 stopReactive <- reactive({subset(stops[input$stop1isGraph], stops[input$stop1isGraph] == input$Year)})
 
-month_table_df <- data.frame(Month=character(), Rides=integer())
-for(mon in months) {
-  num <- with(uic2021, sum(rides[month_char == mon]))
-  rowdf <- data.frame(Month=mon, Rides=num)
-  month_table_df <- rbind(month_table_df, rowdf)
-}
-
 output$plot1 <- renderPlot({
+  
+  title_theme <- theme(plot.title=element_text(family='', colour='Black', size=20))
   
   # get the dataset we're using
     stop1Data <- NULL
     if(input$stop1 == "UIC-Halsted") {
-      monthly_title <- paste("UIC", input$Year,  "Monthly Ridership")
       stop1Data <- uicReactive()
-    } else if(input$stop1 == "O-Hare") { 
-      monthly_title <- paste("O-Hare", input$Year,  "Monthly Ridership")
+    } 
+    else if(input$stop1 == "O-Hare") { 
       stop1Data <- hareReactive()
     }
-    
+    else if(input$stop1 == "Jackson") { 
+      stop1Data <- jacksonReactive()
+    }
+    # make our titles
+    monthly_title <- paste(input$stop1, input$Year,  "Monthly Ridership")
+    weekly_title <- paste(input$stop1, input$Year,  "Weekly Ridership")
+    daily_title <- paste(input$stop1, input$Year,  "Daily Ridership")
+    yearly_title <- paste(input$stop1, input$Year,  "Yearly Ridership")
     # get the metric for the graph
     
     # Month
     if(input$stop1Type == "Month") {
       
-      if(input$stop1isGraph == 1) {
-        ggplot(data=stop1Data, aes(x=month_char, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma) + scale_x_discrete("", limits = months)
-      }
-      else {
-           month_table_df <- data.frame(Month=character(), Rides=integer())
-        
-           for(mon in months) {
-             num <- with(stop1Data, sum(rides[month_char == mon]))
-             rowdf <- data.frame(Month=mon, Rides=num)
-             month_table_df <- rbind(month_table_df, rowdf)
-           }
-           renderDT(month_table_df, options = list(searching = FALSE, pagelength = 2))
-      }
-      
+        ggplot(data=stop1Data, aes(x=month_char, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma) + scale_x_discrete("Months", limits = months) + labs(x="Month", y = "Rides") + title_theme
     }
     # Weekday
     else if(input$stop1Type == "Weekday") { 
       
-      ggplot(data=stop1Data, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma)  + scale_x_discrete("", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat"))
+      ggplot(data=stop1Data, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(weekly_title) + scale_y_continuous("Rides", labels = scales::comma)  + scale_x_discrete("Weekdays", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat")) + title_theme
     }
     # Day 
     else if(input$stop1Type == "Day") { 
-      ggplot(data=stop1Data, aes(x=date_ymd, y=rides)) + geom_bar(stat="identity") + ggtitle(monthly_title)
+      ggplot(data=stop1Data, aes(x=date_ymd, y=rides)) + geom_bar(stat="identity", fill = "#098CF9") + ggtitle(daily_title) + scale_x_date(date_breaks = "1 month") + labs(x = "Day", y = "Rides") + title_theme
     }
     # Year
     else if(input$stop1Type == "Year") {
       
       # get our total dataset
       if(input$stop1 == "UIC-Halsted") {
-        monthly_title <- paste("UIC", input$Year,  "Yearly Ridership")
         stop1Data <- uic
       } else if(input$stop1 == "O-Hare") { 
-        monthly_title <- paste("O-Hare", input$Year,  "Yearly Ridership")
         stop1Data <- hare
       }
-      ggplot(data=stop1Data, aes(x=year, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle("UIC Per Year Ridership") + scale_y_continuous(labels = scales::comma) + scale_x_continuous(breaks = seq(2001, 2021, 2))
+      else if(input$stop1 == "Jackson") { 
+        stop1Data <- jackson
+      }
+      ggplot(data=stop1Data, aes(x=year, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(yearly_title) + scale_y_continuous("Rides", labels = scales::comma) + scale_x_continuous("Year", breaks = seq(2001, 2021)) + title_theme
     }
+  
+})
+
+output$plot2 <- renderPlot({
+  
+  title_theme <- theme(plot.title=element_text(family='', colour='Black', size=20))
+  
+  # get the dataset we're using
+  stop1Data <- NULL
+  if(input$stop2 == "UIC-Halsted") {
+    stop2Data <- uicReactive2()
+  } 
+  else if(input$stop2 == "O-Hare") { 
+    stop2Data <- hareReactive2()
+  }
+  else if(input$stop2 == "Jackson") { 
+    stop2Data <- jacksonReactive2()
+  }
+  # make our titles
+  monthly_title <- paste(input$stop2, input$Year2,  "Monthly Ridership")
+  weekly_title <- paste(input$stop2, input$Year2,  "Weekly Ridership")
+  daily_title <- paste(input$stop2, input$Year2,  "Daily Ridership")
+  yearly_title <- paste(input$stop2, input$Year2,  "Yearly Ridership")
+  # get the metric for the graph
+  
+  # Month
+  if(input$stop2Type == "Month") {
     
-  
-  
-})
-
-  
-
-output$uicPlotMonthly <- renderPlot({
-  monthly_title <- paste("UIC", input$Year,  "Monthly Ridership")
-  thisYearUIC <- uicReactive()
-  ggplot(data=thisYearUIC, aes(x=month_char, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma) + scale_x_discrete("", limits = months)
-  #ggplot(data=thisYearUIC, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle("UIC 2021 Weekday Ridership") + scale_y_continuous(labels = scales::comma)  + scale_x_discrete("", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat"))
-  
-  
-})
-
-output$uicPlotWeekly <- renderPlot({
-    weekly_title <- paste("UIC", input$Year,  "Monthly Ridership")
-  
-    thisYearUIC <- uicReactive()
+    ggplot(data=stop2Data, aes(x=month_char, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma) + scale_x_discrete("Months", limits = months) + labs(x="Month", y = "Rides") + title_theme
+  }
+  # Weekday
+  else if(input$stop2Type == "Weekday") { 
     
-    ggplot(data=thisYearUIC, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(weekly_title) + scale_y_continuous(labels = scales::comma)  + scale_x_discrete("", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat"))
+    ggplot(data=stop2Data, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(weekly_title) + scale_y_continuous("Rides", labels = scales::comma)  + scale_x_discrete("Weekdays", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat")) + title_theme
+  }
+  # Day 
+  else if(input$stop2Type == "Day") { 
+    ggplot(data=stop2Data, aes(x=date_ymd, y=rides)) + geom_bar(stat="identity", fill = "#098CF9") + ggtitle(daily_title) + scale_x_date(date_breaks = "1 month") + labs(x = "Day", y = "Rides") + title_theme
+  }
+  # Year
+  else if(input$stop2Type == "Year") {
+    
+    # get our total dataset
+    if(input$stop2 == "UIC-Halsted") {
+      stop2Data <- uic
+    } else if(input$stop2 == "O-Hare") { 
+      stop2Data <- hare
+    }
+    else if(input$stop2 == "Jackson") { 
+      stop2Data <- jackson
+    }
+    ggplot(data=stop2Data, aes(x=year, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(yearly_title) + scale_y_continuous("Rides", labels = scales::comma) + scale_x_continuous("Year", breaks = seq(2001, 2021)) + title_theme
+  }
   
 })
 
-output$uicTableWeekly <- DT::renderDataTable(DT::datatable({
+output$table1 <- DT::renderDataTable(DT::datatable({
+  
+  stop1Data <- NULL
+  if(input$stop1 == "UIC-Halsted") {
+    stop1Data <- uicReactive()
+  } else if(input$stop1 == "O-Hare") { 
+    stop1Data <- hareReactive()
+  }
+  else if(input$stop1 == "Jackson") { 
+    stop1Data <- jacksonReactive()
+  }
+  
+  monthly_title <- paste(input$stop1, input$Year,  "Monthly Ridership")
+  weekly_title <- paste(input$stop1, input$Year,  "Weekly Ridership")
+  daily_title <- paste(input$stop1, input$Year,  "Daily Ridership")
+  yearly_title <- paste(input$stop1, input$Year,  "Yearly Ridership")
   
   # TODO: Abstract this to days, years, months, weekdays
   # TODO: add conditionalPanel to the row which can decide to show table or graph
-  
-  month_table_df <- data.frame(Month=character(), Rides=integer())
-  for(mon in months) {
-    num <- with(uic2021, sum(rides[month_char == mon]))
-    rowdf <- data.frame(Month=mon, Rides=num)
-    month_table_df <- rbind(month_table_df, rowdf)
+  if(input$stop1Type == "Month") { 
+    month_table_df <- data.frame(Month=character(), Rides=integer())
+    for(mon in months) {
+      num <- with(stop1Data, sum(rides[month_char == mon]))
+      rowdf <- data.frame(Month=mon, Rides=num)
+      month_table_df <- rbind(month_table_df, rowdf)
+    }
+    data <- month_table_df
+    data
   }
-  data <- month_table_df
-  data
-}))
-
-output$uicPlotYearly <- renderPlot({
-  yearly_title <- paste("UIC", input$Year,  "Yearly Ridership")
+  else if(input$stop1Type == "Weekday") { 
   
-  thisYearUIC <- uicReactive()
-  
-  ggplot(thisYearUIC, aes(x=date_ymd, y=rides)) + geom_bar(stat="identity") + ggtitle(yearly_title)
-  
-})
-
-output$harePlotMonthly <- renderPlot({
-  monthly_title <- paste("O-Hare", input$Year,  "Monthly Ridership")
-  thisYearHare <- hareReactive()
-  ggplot(data=thisYearHare, aes(x=month_char, y=rides)) + geom_bar(stat = "identity", fill="#098CF9") + ggtitle(monthly_title) + scale_y_continuous(labels = scales::comma) + scale_x_discrete("", limits = months)
-  #ggplot(data=thisYearUIC, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle("UIC 2021 Weekday Ridership") + scale_y_continuous(labels = scales::comma)  + scale_x_discrete("", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat"))
-})
-
-output$harePlotWeekly <- renderPlot({
-  weekly_title <- paste("O-Hare", input$Year,  "weekly Ridership")
-  
-  thisYearHare <- hareReactive()
-  
-  ggplot(data=thisYearHare, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(weekly_title) + scale_y_continuous(labels = scales::comma)  + scale_x_discrete("", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat"))
-  
-})
+      weekday_table_df <- data.frame(Weekday=character(), Rides=integer())
     
+      for(wkday in weekdayNums) {
+        num <- with(stop1Data, sum(rides[day_of_week == wkday]))
+        rowdf <- data.frame(Weekday=wkday, Rides=num)
+        weekday_table_df <- rbind(weekday_table_df, rowdf)
+      }
+      data <- weekday_table_df
+      data
+    
+  }
+  else if(input$stop1Type == "Year") { 
+    if(input$stop1 == "UIC-Halsted") {
+      stop1Data <- uic
+    } else if(input$stop1 == "O-Hare") { 
+      stop1Data <- hare
+    }
+    else if(input$stop1 == "Jackson") { 
+      stop1Data <- jackson
+    }
+    year_table_df <- data.frame(Year=double(), Rides=integer())
+    
+    for(currentYear in 2001:2021) {
+      
+      num <- with(stop1Data, sum(rides[currentYear == year]))
+      rowdf <- data.frame(Year=currentYear, Rides=num)
+      year_table_df <- rbind(year_table_df, rowdf)
+    
+    }
+    data <- year_table_df
+    data
+  }
+  else if(input$stop1Type == "Day") { 
+    
+    day_table_df <- data.frame(Day=character(), Rides=integer())
+    i <- 1
+
+        stop1Data <- stop1Data[order(as.Date(stop1Data$date_ymd, format = "%Y-&m-%d")), ]
+    for(i in 1:nrow(stop1Data)) {
+
+      rowdf <- data.frame(Day = stop1Data[i, ]$date_ymd, Rides = stop1Data[i, ]$rides)
+      day_table_df <- rbind(day_table_df, rowdf)
+      }
+    data <- day_table_df
+    data
+    
+  }
+  
+}, options = list(searching = FALSE, pageLength = 7, lengthChange = FALSE), rownames = FALSE))
+
+output$table2 <- DT::renderDataTable(DT::datatable({
+  
+  stop2Data <- NULL
+  if(input$stop2 == "UIC-Halsted") {
+    stop2Data <- uicReactive2()
+  } else if(input$stop2 == "O-Hare") { 
+    stop2Data <- hareReactive2()
+  }
+  else if(input$stop2 == "Jackson") { 
+    stop2Data <- jacksonReactive2()
+  }
+  
+  monthly_title <- paste(input$stop2, input$Year2,  "Monthly Ridership")
+  weekly_title <- paste(input$stop2, input$Year2,  "Weekly Ridership")
+  daily_title <- paste(input$stop2, input$Year2,  "Daily Ridership")
+  yearly_title <- paste(input$stop2, input$Year2,  "Yearly Ridership")
+  
+  # TODO: Abstract this to days, years, months, weekdays
+  # TODO: add conditionalPanel to the row which can decide to show table or graph
+  if(input$stop2Type == "Month") { 
+    month_table_df <- data.frame(Month=character(), Rides=integer())
+    for(mon in months) {
+      num <- with(stop2Data, sum(rides[month_char == mon]))
+      rowdf <- data.frame(Month=mon, Rides=num)
+      month_table_df <- rbind(month_table_df, rowdf)
+    }
+    data <- month_table_df
+    data
+  }
+  else if(input$stop2Type == "Weekday") { 
+    
+    weekday_table_df <- data.frame(Weekday=character(), Rides=integer())
+    
+    for(wkday in weekdayNums) {
+      num <- with(stop2Data, sum(rides[day_of_week == wkday]))
+      rowdf <- data.frame(Weekday=wkday, Rides=num)
+      weekday_table_df <- rbind(weekday_table_df, rowdf)
+    }
+    data <- weekday_table_df
+    data
+    
+  }
+  else if(input$stop2Type == "Year") { 
+    if(input$stop2 == "UIC-Halsted") {
+      stop2Data <- uic
+    } else if(input$stop2 == "O-Hare") { 
+      stop2Data <- hare
+    }
+    else if(input$stop2 == "Jackson") { 
+      stop2Data <- jackson
+    }
+    year_table_df <- data.frame(Year=double(), Rides=integer())
+    
+    for(currentYear in 2001:2021) {
+      
+      num <- with(stop2Data, sum(rides[currentYear == year]))
+      rowdf <- data.frame(Year=currentYear, Rides=num)
+      year_table_df <- rbind(year_table_df, rowdf)
+      
+    }
+    data <- year_table_df
+    data
+  }
+  else if(input$stop2Type == "Day") { 
+    
+    day_table_df <- data.frame(Day=character(), Rides=integer())
+    i <- 1
+    
+    stop2Data <- stop2Data[order(as.Date(stop2Data$date_ymd, format = "%Y-&m-%d")), ]
+    for(i in 1:nrow(stop2Data)) {
+      
+      rowdf <- data.frame(Day = stop2Data[i, ]$date_ymd, Rides = stop2Data[i, ]$rides)
+      day_table_df <- rbind(day_table_df, rowdf)
+    }
+    data <- day_table_df
+    data
+    
+  }
+  
+}, options = list(searching = FALSE, pageLength = 7, lengthChange = FALSE
+), rownames = FALSE))
+
+
+
 }
 shinyApp(ui, server)
 
