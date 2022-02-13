@@ -12,28 +12,35 @@ library(scales)
 
 # Load in our data
 # make sure to disable quotes
-ridership <- read.table(file = "ridership.tsv", sep = '\t', header = TRUE, quote="")
-
-# fix the date
-
-ridership$date_ymd <- ymd(paste(year(mdy(ridership$date)), month(mdy(ridership$date)), day(mdy(ridership$date)), sep="-"))
-ridership$month <- month(ridership$date_ymd)
-ridership$month_char <- month.abb[month(ridership$date_ymd)]
-ridership$year <- year(ridership$date_ymd)
-ridership$day <- day(ridership$date_ymd)
-ridership$day_of_week <- weekdays(ridership$date_ymd)
+# ridership <- read.table(file = "ridership.tsv", sep = '\t', header = TRUE, quote="")
+# 
+# # fix the date
+# 
+# ridership$date_ymd <- ymd(paste(year(mdy(ridership$date)), month(mdy(ridership$date)), day(mdy(ridership$date)), sep="-"))
+# ridership$month <- month(ridership$date_ymd)
+# ridership$month_char <- month.abb[month(ridership$date_ymd)]
+# ridership$year <- year(ridership$date_ymd)
+# ridership$day <- day(ridership$date_ymd)
+# ridership$day_of_week <- weekdays(ridership$date_ymd)
 #ridership$date_correct <- ymd(paste(ridership$Year, utility$Month, "01", sep="-"))
 
 # TODO: Make these subsets into their own files
 
+#uic <- subset(ridership, stationname == "UIC-Halsted")
+
 # first station is UIC-HALSTED
-uic <- subset(ridership, stationname == "UIC-Halsted")
+uic <- as.data.frame(read.csv("uicHalsted.csv", fileEncoding = "UTF-8-BOM"))
+uic$date_ymd <- as.Date(uic$date_ymd)
 
 # second station is O'Hare
-hare <- subset(ridership, stationname == "O'Hare Airport")
-
+hare <- as.data.frame(read.csv("oHare.csv", fileEncoding = "UTF-8-BOM"))
+hare$date_ymd <- as.Date(hare$date_ymd)
 #third station is Jackson
-jackson <- subset(ridership, stationname == "Jackson/Dearborn")
+jackson <- as.data.frame(read.csv("jackson.csv", fileEncoding = "UTF-8-BOM"))
+jackson$date_ymd <- as.Date(jackson$date_ymd)
+#hare <- subset(ridership, stationname == "O'Hare Airport")
+
+#jackson <- subset(ridership, stationname == "Jackson/Dearborn")
 
 #UICperYear = ggplot(data=uic, aes(x=year, y=rides)) 
 #UICperYear = UICperYear + geom_bar(stat = "identity", fill="#098CF9") 
@@ -109,17 +116,18 @@ ui <- dashboardPage(
   dashboardBody(
   
   fluidRow(
-    box(width = 2),
-    column(8, box(width = 12, height = "35vh",
+    box(width = 2, "Written by Kenan Arica for CS 424, in Spring 2022. Dataset is taken from", tags$a(href="https://data.cityofchicago.org/Transportation/CTA-Ridership-L-Station-Entries-Daily-Totals/5neh-572f
+", "Chicago Data Portal"), "and is CTA ridership from 2001-2021. Created to explore interesting trends in CTA ridership across the UIC-Halsted, O-Hare, and Jackson Blue line stops."),
+    column(8, box(width = 12,
                   
                   
                   conditionalPanel(
                     condition = "input.stop1isGraph == 'yes'",
-                    plotOutput("plot1")
+                    plotOutput("plot1", height ="35vh")
                   ),
                   conditionalPanel(
                     condition = "input.stop1isGraph == 'no'",
-                    dataTableOutput("table1")
+                    dataTableOutput("table1", height = "35vh")
                   )
                   , title = "Stop 1", solidHeader = TRUE, background = "blue")
     ),
@@ -128,7 +136,7 @@ ui <- dashboardPage(
   
     
   fluidRow(
-    column(2, box(
+    column(2, box(height = "40vh",
       sliderInput(inputId = "Year",
                   label = "Year:",
                   min = 2001,
@@ -164,15 +172,15 @@ ui <- dashboardPage(
     
                conditionalPanel(
                  condition = "input.stop2isGraph == 'yes'",
-                 plotOutput("plot2", height=200)
+                 plotOutput("plot2", height="35vh")
                ),
                conditionalPanel(
                  condition = "input.stop2isGraph == 'no'",
-                 dataTableOutput("table2", height=200)
+                 dataTableOutput("table2", height="35vh")
                )
     , title = "Stop 2", solidHeader = TRUE, background = "blue")
     ),
-    column(2, box(
+    column(2, box(height = "40vh",
       sliderInput(inputId = "Year2",
                   label = "Year:",
                   min = 2001,
@@ -307,8 +315,9 @@ output$plot2 <- renderPlot({
     ggplot(data=stop2Data, aes(x=day_of_week, y=rides)) + geom_bar(stat = "identity", fill="#098CF9")  + ggtitle(weekly_title) + scale_y_continuous("Rides", labels = scales::comma)  + scale_x_discrete("Weekdays", limits=weekdayNums, labels=c("Sunday" = "Sun","Monday" = "Mon", "Tuesday" = "Tues", "Wednesday" = "Wed", "Thursday" = "Thurs", "Friday" = "Fri", "Saturday" = "Sat")) + title_theme
   }
   # Day 
-  else if(input$stop2Type == "Day") { 
-    ggplot(data=stop2Data, aes(x=date_ymd, y=rides)) + geom_bar(stat="identity", fill = "#098CF9") + ggtitle(daily_title) + scale_x_date(date_breaks = "1 month") + labs(x = "Day", y = "Rides") + title_theme
+  else if(input$stop2Type == "Day") {
+    
+    ggplot(data=stop2Data, aes(x=as.Date(date_ymd), y=rides)) + geom_bar(stat="identity", fill = "#098CF9") + ggtitle(daily_title) + scale_x_date(date_breaks = "1 month") + labs(x = "Day", y = "Rides") + title_theme
   }
   # Year
   else if(input$stop2Type == "Year") {
@@ -406,7 +415,7 @@ output$table1 <- DT::renderDataTable(DT::datatable({
     
   }
   
-}, options = list(searching = FALSE, pageLength = 7, lengthChange = FALSE), rownames = FALSE))
+}, options = list(searching = FALSE, pageLength = 10, lengthMenu = c(7, 10, 20)), rownames = FALSE))
 
 output$table2 <- DT::renderDataTable(DT::datatable({
   
@@ -487,7 +496,7 @@ output$table2 <- DT::renderDataTable(DT::datatable({
     
   }
   
-}, options = list(searching = FALSE, pageLength = 7, lengthChange = FALSE
+}, options = list(searching = FALSE, pageLength = 10, lengthMenu = c(7, 10, 20)
 ), rownames = FALSE))
 
 

@@ -5,9 +5,10 @@ account: karica2
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5629671
-bundleId: 5573281
+bundleId: 5573415
 url: https://karica2.shinyapps.io/424Project1/
-when: 1644710510.92329
-lastSyncTime: 1644710510.92332
+when: 1644715276.95924
+lastSyncTime: 1644715276.95926
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: ridership.csv|ridership.tsv|testingCSVloading.R
